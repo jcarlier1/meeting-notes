@@ -26,7 +26,6 @@ COPY src ./src
 COPY data ./data
 
 RUN python3 -m pip install -U pip wheel setuptools \
- && (python3 -m pip install -q crisper-whisper || echo "CrisperWhisper not found, will fallback to faster-whisper") \
  && python3 -m pip install -q \
       typer[all] \
       pyyaml \
@@ -34,7 +33,7 @@ RUN python3 -m pip install -U pip wheel setuptools \
       numpy \
       tqdm \
       faster-whisper \
-      llama-cpp-python-cu121 \
+      llama-cpp-python==0.2.86 \
  && python3 -m pip install -q \
       torch==2.3.0+cu121 \
       torchvision==0.18.0+cu121 \
