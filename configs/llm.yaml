@@ -1,0 +1,9 @@
+backend: llama-cpp
+model: Qwen2.5-3B-Instruct.Q4_K_M.gguf
+context: 4096
+gpu_layers: 35
+sampling:
+  temperature: 0.2
+  top_p: 0.9
+  max_tokens: 1024
+

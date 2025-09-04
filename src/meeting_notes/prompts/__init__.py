@@ -1,0 +1,2 @@
+# Package data: prompt templates
+

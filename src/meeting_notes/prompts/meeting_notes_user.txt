@@ -1,0 +1,12 @@
+Summarize the following transcript into:
+- Main points
+- Discussion points
+- Action items with owner and due date if stated
+
+Constraints:
+- Be concise and factual.
+- Preserve key decisions and dates.
+- Include timestamps in [mm:ss] referencing the transcript time where relevant.
+
+Transcript:
+{{TRANSCRIPT}}

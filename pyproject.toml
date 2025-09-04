@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meeting-notes"
+version = "0.1.0"
+description = "CLI meeting notetaker with local ASR + LLM summarization"
+requires-python = ">=3.10"
+dependencies = [
+  "typer",
+  "PyYAML",
+  "numpy",
+]
+
+[project.scripts]
+meeting-notes = "meeting_notes.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+meeting_notes = ["prompts/*.txt"]

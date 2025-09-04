@@ -1,0 +1,8 @@
+model: large-v3
+device: auto
+language: auto
+vad: true
+chunking:
+  segment_sec: 20
+  overlap_sec: 2
+
