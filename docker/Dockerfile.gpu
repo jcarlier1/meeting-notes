@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
+    build-essential \
+    cmake \
     ffmpeg \
     git \
     curl \
@@ -27,13 +29,14 @@ COPY data ./data
 
 RUN python3 -m pip install -U pip wheel setuptools \
  && python3 -m pip install -q \
-      typer[all] \
+      typer \
       pyyaml \
       sounddevice \
       numpy \
       tqdm \
       faster-whisper \
-      llama-cpp-python==0.2.86 \
+ && (python3 -m pip install -q --only-binary=:all: llama-cpp-python==0.2.90 \
+     || echo "No prebuilt llama-cpp-python wheel for this env; skipping") \
  && python3 -m pip install -q \
       torch==2.3.0+cu121 \
       torchvision==0.18.0+cu121 \
