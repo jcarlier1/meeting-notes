@@ -1,8 +1,8 @@
-model: large-v3
+backend: nemo
+model: stt_en_fastconformer_transducer_large
 device: auto
 language: auto
 vad: true
 chunking:
   segment_sec: 20
   overlap_sec: 2
-
