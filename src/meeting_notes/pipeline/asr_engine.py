@@ -85,15 +85,69 @@ class _ASRBackend:
         return segments
 
 
+class _NemoBackend:
+    """ASR backend powered by NVIDIA NeMo containers.
+
+    This backend expects NeMo to be importable (i.e., running inside the NeMo container).
+    It returns a single segment per input file with best-effort timestamps.
+    """
+
+    def __init__(self, model_name: str, device: str = "auto"):
+        self.model_name = model_name
+        self.device = device
+        self.backend = None
+        self.backend_name = "nemo"
+        self._init_backend()
+
+    def _init_backend(self) -> None:
+        try:
+            import nemo.collections.asr as nemo_asr  # type: ignore
+
+            self.backend = nemo_asr.models.ASRModel.from_pretrained(self.model_name)
+        except Exception as e:  # pragma: no cover - environment dependent
+            raise RuntimeError(
+                "NeMo is not available. Run inside the NeMo container (nvcr.io/nvidia/nemo) or install NeMo."
+            ) from e
+
+    def transcribe(self, audio_path: str, **_: object) -> List[Dict]:
+        # NeMo transcribe API can return strings or Hypothesis objects depending on version.
+        outs = self.backend.transcribe([audio_path], return_hypotheses=True)
+
+        def _to_text(x) -> str:
+            try:
+                if isinstance(x, str):
+                    return x.strip()
+                if isinstance(x, (list, tuple)) and x:
+                    return _to_text(x[0])
+                # Hypothesis-like
+                txt = getattr(x, "text", None)
+                if isinstance(txt, str):
+                    return txt.strip()
+            except Exception:
+                pass
+            return str(x).strip()
+
+        text = _to_text(outs[0]) if outs else ""
+        dur = _probe_duration(Path(audio_path))
+        return [{"start": 0.0, "end": float(dur or 0.0), "text": text}]
+
+
 def transcribe_file(path: str | Path) -> List[Dict]:
     cfg = _load_asr_config()
-    model = _ASRBackend(
-        model_name=cfg.get("model", "large-v3"),
-        device=cfg.get("device", "auto"),
-        vad=bool(cfg.get("vad", True)),
-        model_dir=str(Path("data/models/asr").absolute()),
-        language=cfg.get("language", "auto"),
-    )
+    backend_choice = str(cfg.get("backend", "whisper")).lower()
+    if backend_choice == "nemo":
+        model_any = _NemoBackend(
+            model_name=cfg.get("model", "stt_en_fastconformer_transducer_large"),
+            device=cfg.get("device", "auto"),
+        )
+    else:
+        model_any = _ASRBackend(
+            model_name=cfg.get("model", "large-v3"),
+            device=cfg.get("device", "auto"),
+            vad=bool(cfg.get("vad", True)),
+            model_dir=str(Path("data/models/asr").absolute()),
+            language=cfg.get("language", "auto"),
+        )
 
     # Convert input to 16k mono WAV
     tmp_dir = Path("data/tmp/asr"); tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -116,7 +170,7 @@ def transcribe_file(path: str | Path) -> List[Dict]:
             end = min(duration, t + seg_sec)
             chunk_path = tmp_dir / f"chunk_{idx:04d}.wav"
             _ffmpeg_trim(wav_path, chunk_path, start, end - start)
-            new = model.transcribe(str(chunk_path), language=cfg.get("language"), vad=cfg.get("vad"))
+            new = model_any.transcribe(str(chunk_path), language=cfg.get("language"), vad=cfg.get("vad"))
             # Offset timestamps
             for s in new:
                 s["start"] += start
@@ -126,18 +180,25 @@ def transcribe_file(path: str | Path) -> List[Dict]:
             t += step
         return segments
     else:
-        return model.transcribe(str(wav_path), language=cfg.get("language"), vad=cfg.get("vad"))
+        return model_any.transcribe(str(wav_path), language=cfg.get("language"), vad=cfg.get("vad"))
 
 
 def transcribe_live(outdir: Path, duration_sec: Optional[int] = None) -> List[Dict]:
     cfg = _load_asr_config()
-    model = _ASRBackend(
-        model_name=cfg.get("model", "large-v3"),
-        device=cfg.get("device", "auto"),
-        vad=bool(cfg.get("vad", True)),
-        model_dir=str(Path("data/models/asr").absolute()),
-        language=cfg.get("language", "auto"),
-    )
+    backend_choice = str(cfg.get("backend", "whisper")).lower()
+    if backend_choice == "nemo":
+        model_any = _NemoBackend(
+            model_name=cfg.get("model", "stt_en_fastconformer_transducer_large"),
+            device=cfg.get("device", "auto"),
+        )
+    else:
+        model_any = _ASRBackend(
+            model_name=cfg.get("model", "large-v3"),
+            device=cfg.get("device", "auto"),
+            vad=bool(cfg.get("vad", True)),
+            model_dir=str(Path("data/models/asr").absolute()),
+            language=cfg.get("language", "auto"),
+        )
     ch = cfg.get("chunking", {})
     seg_sec = int(ch.get("segment_sec", 20))
     ov_sec = int(ch.get("overlap_sec", 2))
@@ -148,7 +209,7 @@ def transcribe_live(outdir: Path, duration_sec: Optional[int] = None) -> List[Di
     all_segments: List[Dict] = []
     try:
         for chunk in record_chunks(chunks_dir, seg_sec, ov_sec, max_duration_sec=duration_sec, sr=16000):
-            new = model.transcribe(str(chunk), language=cfg.get("language"), vad=cfg.get("vad"))
+            new = model_any.transcribe(str(chunk), language=cfg.get("language"), vad=cfg.get("vad"))
             # No offset needed; chunk files already include overlap context
             all_segments = merge_segments(all_segments, new)
             # Write rolling outputs
@@ -208,4 +269,3 @@ def __to_json(obj) -> str:
 def _fmt_ts(x: float) -> str:
     m, s = divmod(int(x), 60)
     return f"{m:02d}:{s:02d}"
-
