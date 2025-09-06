@@ -24,7 +24,7 @@ docker pull nvcr.io/nvidia/nemo:25.07
 
 Run transcription from PowerShell (Windows):
 ```powershell
-scripts/run_nemo_asr.ps1 -Audio "D:\\VSCode\\WhisperNotes\\audios\\Lecture 1 EvoPsy_converted_60_120.mp3"
+scripts/run_nemo_asr.ps1 -Audio 
 ```
 
 Outputs go to `data/tmp/run_nemo` by default. The script mounts your workspace and audio folder into the container, installs `ffmpeg` inside the container for resampling/chunking, and runs the CLI `asr-file` command with the NeMo backend.
